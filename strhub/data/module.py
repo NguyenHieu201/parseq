@@ -86,6 +86,7 @@ class SceneTextDataModule(pl.LightningDataModule):
         if self._train_dataset is None:
             transform = self.get_transform(self.img_size, self.augment)
             root = PurePath(self.root_dir, 'train', self.train_dir)
+            print("train: ", root)
             self._train_dataset = build_tree_dataset(
                 root,
                 self.charset_train,
@@ -102,6 +103,7 @@ class SceneTextDataModule(pl.LightningDataModule):
         if self._val_dataset is None:
             transform = self.get_transform(self.img_size)
             root = PurePath(self.root_dir, 'val')
+            print("val: ", root)
             self._val_dataset = build_tree_dataset(
                 root,
                 self.charset_test,

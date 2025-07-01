@@ -77,7 +77,8 @@ def main(config: DictConfig):
     model: BaseSystem = hydra.utils.instantiate(config.model)
     # If specified, use pretrained weights to initialize the model
     if config.pretrained is not None:
-        m = model.model if config.model._target_.endswith('PARSeq') else model
+        # m = model.model if config.model._target_.endswith('PARSeq') else model
+        m = model
         m.load_state_dict(get_pretrained_weights(config.pretrained))
     print(summarize(model, max_depth=2))
 
@@ -100,7 +101,7 @@ def main(config: DictConfig):
     )
     trainer: Trainer = hydra.utils.instantiate(
         config.trainer,
-        logger=TensorBoardLogger(cwd, '', '.'),
+        # logger=TensorBoardLogger(cwd, '', '.'),
         strategy=trainer_strategy,
         enable_model_summary=False,
         callbacks=[checkpoint, swa],

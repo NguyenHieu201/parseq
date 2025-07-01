@@ -1,3 +1,4 @@
+import os
 from pathlib import PurePath
 from typing import Sequence
 
@@ -19,6 +20,7 @@ _WEIGHTS_URL = {
     'trba': 'https://github.com/baudm/parseq/releases/download/v1.0.0/trba-cfaed284.pt',
     'vitstr': 'https://github.com/baudm/parseq/releases/download/v1.0.0/vitstr-26d0fcf4.pt',
     'crnn': 'https://github.com/baudm/parseq/releases/download/v1.0.0/crnn-679d0e31.pt',
+    '/kaggle/input/hw-number/parseq_epoch7.ckpt': '/kaggle/input/hw-number/parseq_epoch7.ckpt'
 }
 
 
@@ -67,6 +69,9 @@ def get_pretrained_weights(experiment):
         url = _WEIGHTS_URL[experiment]
     except KeyError:
         raise InvalidModelError(f"No pretrained weights found for '{experiment}'") from None
+    if os.path.exists(url):
+        print("Load pretrained weights from local file:", url)
+        return torch.load(url, map_location="cpu", weights_only=True)["state_dict"]
     return torch.hub.load_state_dict_from_url(url=url, map_location='cpu', check_hash=True)
 
 
@@ -77,8 +82,11 @@ def create_model(experiment: str, pretrained: bool = False, **kwargs):
         raise InvalidModelError(f"No configuration found for '{experiment}'") from None
     ModelClass = _get_model_class(experiment)
     model = ModelClass(**config)
+    print("11111")
     if pretrained:
-        m = model.model if 'parseq' in experiment else model
+        # m = model.model if 'parseq' in experiment else model
+        m = model
+        print(model.state_dict().keys())
         m.load_state_dict(get_pretrained_weights(experiment))
     return model
 
