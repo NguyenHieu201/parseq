@@ -18,7 +18,7 @@ model:
 
 data:
   _target_: strhub.data.module.SceneTextDataModule
-  root_dir: /kaggle/input/hw-number/zeon
+  root_dir: /kaggle/input/hw-number/zeon2
   batch_size: ${model.batch_size}
   img_size: ${model.img_size}
   charset_train: ${model.charset_train}
@@ -32,7 +32,7 @@ data:
 trainer:
   _target_: pytorch_lightning.Trainer
   _convert_: all
-  val_check_interval: 1000
+  val_check_interval: 260
   #max_steps: 169680  # 20 epochs x 8484 steps (for batch size = 384, real data)
   max_epochs: 20
   gradient_clip_val: 20
@@ -40,7 +40,7 @@ trainer:
   devices: 2
 
 ckpt_path: null
-pretrained: /kaggle/input/hw-number/parseq_epoch7.ckpt
+pretrained: /kaggle/input/hw-number/zeon2/parseq_epoch7.ckpt
 
 hydra:
   output_subdir: config

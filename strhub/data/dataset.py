@@ -43,6 +43,13 @@ def build_tree_dataset(root: Union[PurePath, str], *args, **kwargs):
         ds_root = str(mdb.parent.absolute())
         dataset = LmdbDataset(ds_root, *args, **kwargs)
         log.info(f'\tlmdb:\t{ds_name}\tnum samples: {len(dataset)}')
+        # import cv2
+        # for idx in range(10):
+        #     img, label = dataset[idx]
+        #     img = img.permute(1, 2, 0).numpy() * 255  # Convert to HWC format
+        #     img = img.astype('uint8')  # Ensure the image is in uint8 format
+        #     cv2.imwrite(f"img_{idx}.jpg", img)
+        # assert False
         datasets.append(dataset)
     return ConcatDataset(datasets)
 
@@ -75,6 +82,8 @@ class LmdbDataset(Dataset):
         self.num_samples = self._preprocess_labels(
             charset, remove_whitespace, normalize_unicode, max_label_len, min_image_dim
         )
+        # import torchvision.transforms as T
+        # transform = T.Compose([T.Resize((64, 120), interpolation=T.InterpolationMode.BICUBIC, max_size=None, antialias=True), T.ToTensor()])
 
     def __del__(self):
         if self._env is not None:

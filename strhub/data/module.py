@@ -102,7 +102,7 @@ class SceneTextDataModule(pl.LightningDataModule):
     def val_dataset(self):
         if self._val_dataset is None:
             transform = self.get_transform(self.img_size)
-            root = PurePath(self.root_dir, 'val')
+            root = PurePath(self.root_dir, 'test')
             print("val: ", root)
             self._val_dataset = build_tree_dataset(
                 root,

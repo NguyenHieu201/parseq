@@ -65,6 +65,8 @@ def _get_model_class(key):
 
 
 def get_pretrained_weights(experiment):
+    if os.path.exists(experiment):
+        return torch.load(experiment, map_location="cpu", weights_only=True)["state_dict"]
     try:
         url = _WEIGHTS_URL[experiment]
     except KeyError:
