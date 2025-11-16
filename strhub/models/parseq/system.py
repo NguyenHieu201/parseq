@@ -181,20 +181,40 @@ class PARSeq(CrossEntropySystem):
         tgt_padding_mask = (tgt_in == self.pad_id) | (tgt_in == self.eos_id)
 
         loss = 0
+        a_loss = 0
+        s_loss = 0
+        p_loss = 0
+
         loss_numel = 0
+        p_loss_numel = 0
         n = (tgt_out != self.pad_id).sum().item()
+        
+        selective_logits = self.model.selective_head(memory[:, 0, :])
+        selective_logits = F.relu(selective_logits)
+        y_selective = selective_logits.argmax(dim=1)
+
+        s_loss = (images.shape[0] - y_selective.sum()) / images.shape[0]
+        
         for i, perm in enumerate(tgt_perms):
             tgt_mask, query_mask = self.generate_attn_masks(perm)
             out = self.model.decode(tgt_in, memory, tgt_mask, tgt_padding_mask, tgt_query_mask=query_mask)
-            logits = self.model.head(out).flatten(end_dim=1)
-            loss += n * F.cross_entropy(logits, tgt_out.flatten(), ignore_index=self.pad_id)
+            # logits = self.model.head(out).flatten(end_dim=1)
+            # loss += n * F.cross_entropy(logits, tgt_out.flatten(), ignore_index=self.pad_id)
+            logits = self.model.head(out)
+            a_loss += n * F.cross_entropy(logits.flatten(end_dim=1), tgt_out.flatten(), ignore_index=self.pad_id)
+            p_loss += n * F.cross_entropy(logits[y_selective==1].flatten(end_dim=1), tgt_out[y_selective==1].flatten(), ignore_index=self.pad_id)
+            
             loss_numel += n
+            
             # After the second iteration (i.e. done with canonical and reverse orderings),
             # remove the [EOS] tokens for the succeeding perms
             if i == 1:
                 tgt_out = torch.where(tgt_out == self.eos_id, self.pad_id, tgt_out)
                 n = (tgt_out != self.pad_id).sum().item()
-        loss /= loss_numel
+        # loss /= loss_numel
+        a_loss /= loss_numel
+        p_loss /= loss_numel
+        loss = (p_loss + s_loss) * 0.5 + 0.5 * a_loss
 
         self.log('loss', loss)
         return loss

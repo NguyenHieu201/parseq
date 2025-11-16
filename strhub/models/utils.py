@@ -66,7 +66,8 @@ def _get_model_class(key):
 
 def get_pretrained_weights(experiment):
     if os.path.exists(experiment):
-        return torch.load(experiment, map_location="cpu", weights_only=True)["state_dict"]
+        # return torch.load(experiment, map_location="cpu", weights_only=True)["state_dict"]
+        return torch.load(experiment, map_location="cpu", weights_only=True)
     try:
         url = _WEIGHTS_URL[experiment]
     except KeyError:
@@ -84,7 +85,6 @@ def create_model(experiment: str, pretrained: bool = False, **kwargs):
         raise InvalidModelError(f"No configuration found for '{experiment}'") from None
     ModelClass = _get_model_class(experiment)
     model = ModelClass(**config)
-    print("11111")
     if pretrained:
         # m = model.model if 'parseq' in experiment else model
         m = model
@@ -94,12 +94,14 @@ def create_model(experiment: str, pretrained: bool = False, **kwargs):
 
 
 def load_from_checkpoint(checkpoint_path: str, **kwargs):
-    if checkpoint_path.startswith('pretrained='):
-        model_id = checkpoint_path.split('=', maxsplit=1)[1]
-        model = create_model(model_id, True, **kwargs)
-    else:
-        ModelClass = _get_model_class(checkpoint_path)
-        model = ModelClass.load_from_checkpoint(checkpoint_path, **kwargs)
+    # if checkpoint_path.startswith('pretrained='):
+    #     model_id = checkpoint_path.split('=', maxsplit=1)[1]
+    #     model = create_model(model_id, True, **kwargs)
+    # else:
+    #     ModelClass = _get_model_class(checkpoint_path)
+    model = create_model("parseq", False, **kwargs)
+    model.model.load_state_dict(torch.load(checkpoint_path))
+    # model = ModelClass.load_from_checkpoint(checkpoint_path, **kwargs)
     return model
 
 

@@ -61,6 +61,7 @@ class PARSeq(nn.Module):
 
         # We don't predict <bos> nor <pad>
         self.head = nn.Linear(embed_dim, num_tokens - 2)
+        self.selective_head = nn.Linear(embed_dim, 2)
         self.text_embed = TokenEmbedding(num_tokens, embed_dim)
 
         # +1 for <eos>
@@ -166,4 +167,9 @@ class PARSeq(nn.Module):
                 )
                 logits = self.head(tgt_out)
 
-        return logits
+        selective_logits = self.selective_head(memory[:, 0, :])
+        selective_logits = nn.functional.relu(selective_logits)
+
+        # return logits, selective_logits
+        
+        return logits, selective_logits

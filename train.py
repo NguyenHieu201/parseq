@@ -78,7 +78,7 @@ def main(config: DictConfig):
     # If specified, use pretrained weights to initialize the model
     if config.pretrained is not None:
         # m = model.model if config.model._target_.endswith('PARSeq') else model
-        m = model
+        m = model.model
         m.load_state_dict(get_pretrained_weights(config.pretrained))
     print(summarize(model, max_depth=2))
 
