@@ -189,21 +189,33 @@ class PARSeq(CrossEntropySystem):
         p_loss_numel = 0
         n = (tgt_out != self.pad_id).sum().item()
         
-        selective_logits = self.model.selective_head(memory[:, 0, :])
-        selective_logits = F.relu(selective_logits)
-        y_selective = selective_logits.argmax(dim=1)
+        selection_out = self.model.forward_selection_head(memory)
+         # compute emprical coverage (=phi^)
+        emprical_coverage = selection_out.mean()
 
-        s_loss = (images.shape[0] - y_selective.sum()) / images.shape[0]
+        # compute penulty (=psi)
+        coverage = torch.tensor([self.model.coverage], dtype=torch.float32, requires_grad=True, device='cuda')
+        penulty = torch.max(coverage-emprical_coverage, torch.tensor([0.0], dtype=torch.float32, requires_grad=True, device='cuda'))**2
+        penulty *= 32 #self.lm
+        s_loss = penulty
         
         for i, perm in enumerate(tgt_perms):
             tgt_mask, query_mask = self.generate_attn_masks(perm)
             out = self.model.decode(tgt_in, memory, tgt_mask, tgt_padding_mask, tgt_query_mask=query_mask)
-            # logits = self.model.head(out).flatten(end_dim=1)
-            # loss += n * F.cross_entropy(logits, tgt_out.flatten(), ignore_index=self.pad_id)
             logits = self.model.head(out)
+            p_loss = F.cross_entropy(
+                logits.permute(0, 2, 1),  # change to [B, C, N]
+                tgt_out,
+                ignore_index=self.pad_id,
+                reduction="none"
+            )
+            mask = (tgt_out != self.pad_id).float()
+            p_loss = p_loss * mask
+            p_loss = p_loss.sum(dim=1) / mask.sum(dim=1)
+            p_loss = (p_loss * selection_out.view(-1)).mean()
+            p_loss = p_loss / emprical_coverage
+
             a_loss += n * F.cross_entropy(logits.flatten(end_dim=1), tgt_out.flatten(), ignore_index=self.pad_id)
-            p_loss += n * F.cross_entropy(logits[y_selective==1].flatten(end_dim=1), tgt_out[y_selective==1].flatten(), ignore_index=self.pad_id)
-            
             loss_numel += n
             
             # After the second iteration (i.e. done with canonical and reverse orderings),
@@ -211,6 +223,7 @@ class PARSeq(CrossEntropySystem):
             if i == 1:
                 tgt_out = torch.where(tgt_out == self.eos_id, self.pad_id, tgt_out)
                 n = (tgt_out != self.pad_id).sum().item()
+
         # loss /= loss_numel
         a_loss /= loss_numel
         p_loss /= loss_numel

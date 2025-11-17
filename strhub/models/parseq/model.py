@@ -28,6 +28,22 @@ from strhub.models.utils import init_weights
 from .modules import Decoder, DecoderLayer, Encoder, TokenEmbedding
 
 
+class SelectionHead(nn.Module):
+
+    def __init__(self, feature_dim: int):
+        super().__init__()
+        self.feature_dim = feature_dim
+        self.linear = nn.Linear(feature_dim, 1)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        X = features.mean(dim=1)
+        X = self.relu(X)
+        y = self.linear(X)
+        y = self.sigmoid(y)
+        return y
+
 class PARSeq(nn.Module):
 
     def __init__(
@@ -46,6 +62,7 @@ class PARSeq(nn.Module):
         decode_ar: bool,
         refine_iters: int,
         dropout: float,
+        coverage: float = 0.9
     ) -> None:
         super().__init__()
 
@@ -61,8 +78,11 @@ class PARSeq(nn.Module):
 
         # We don't predict <bos> nor <pad>
         self.head = nn.Linear(embed_dim, num_tokens - 2)
-        self.selective_head = nn.Linear(embed_dim, 2)
+        self.selective_head = SelectionHead(embed_dim)
+        # self.selective_head = nn.Linear(embed_dim, 2)
         self.text_embed = TokenEmbedding(num_tokens, embed_dim)
+
+        self.coverage = coverage
 
         # +1 for <eos>
         self.pos_queries = nn.Parameter(torch.Tensor(1, max_label_length + 1, embed_dim))
@@ -70,6 +90,9 @@ class PARSeq(nn.Module):
         # Encoder has its own init.
         named_apply(partial(init_weights, exclude=['encoder']), self)
         nn.init.trunc_normal_(self.pos_queries, std=0.02)
+
+    def init_selective_head(self):
+        self.selective_head = SelectionHead(384)
 
     @property
     def _device(self) -> torch.device:
@@ -102,6 +125,10 @@ class PARSeq(nn.Module):
             tgt_query = self.pos_queries[:, :L].expand(N, -1, -1)
         tgt_query = self.dropout(tgt_query)
         return self.decoder(tgt_query, tgt_emb, memory, tgt_query_mask, tgt_mask, tgt_padding_mask)
+
+    def forward_selection_head(self, features: Tensor) -> Tensor:
+        y_selection = self.selective_head(features)
+        return y_selection
 
     def forward(self, tokenizer: Tokenizer, images: Tensor, max_length: Optional[int] = None) -> Tensor:
         testing = max_length is None
@@ -167,9 +194,6 @@ class PARSeq(nn.Module):
                 )
                 logits = self.head(tgt_out)
 
-        selective_logits = self.selective_head(memory[:, 0, :])
-        selective_logits = nn.functional.relu(selective_logits)
-
-        # return logits, selective_logits
+        selective_outputs = self.selective_head(memory)
         
-        return logits, selective_logits
+        return logits, selective_outputs
